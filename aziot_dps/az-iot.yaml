@@ -6,6 +6,7 @@
     dpsname: nvidia-jetson
     resourcegroup: nvidia-jetson
     name: rootca
+    enrollmentid: nvidia-jetson
     
   tasks:
   - name: Folder Creation in the home folder
@@ -30,29 +31,35 @@
   # - fail:
   #     msg: "Azure CLI is not found. Please install it first"
   #   when: result.rc != 0
+        # if ["$rootexists" == "rootca"]  
+      # then
+      #az iot dps certificate update --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name MyCertificate --path /certificates/NewCertificate.pem --etag $etag
+      # else
+      # az iot dps certificate create --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}" --path ./certs/azure-iot-test-only.root.ca.cert.pem
+      # fi
 
   - name: Upload Generated Root CA to DPS
     shell: |
       rootexists=$(az iot dps certificate show --dps-name  "{{ dpsname }}" --resource-group  "{{ dpsname }}" --name "{{ name }}" --query "name" -o tsv)
       etag=$(az iot dps certificate show --dps-name  "{{ dpsname }}" --resource-group  "{{ dpsname }}" --name "{{ name }}" --query "etag" -o tsv)
-      az iot dps certificate update --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name MyCertificate --path ./certs/azure-iot-test-only.root.ca.cert.pem --etag $etag
-      # if ["$rootexists" == "rootca"]  
-      # then
-      az iot dps certificate update --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name MyCertificate --path /certificates/NewCertificate.pem --etag $etag
-      # else
-      # az iot dps certificate create --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}" --path ./certs/azure-iot-test-only.root.ca.cert.pem
-      # fi
+      az iot dps certificate update --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}" --path ./certs/azure-iot-test-only.root.ca.cert.pem --etag $etag
     args:
       chdir: $HOME/certs/
   
-  - name: Generate Proof of Possesion
+  - name: Generate Proof of Possesion and Verification
     shell: |
       etag=$(az iot dps certificate show --dps-name  "{{ dpsname }}" --resource-group  "{{ dpsname }}" --name "{{ name }}" --query "etag" -o tsv)
-      verifycode=$(az iot dps certificate generate-verification-code --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}" --etag $etag)
+      verifycode=$(az iot dps certificate generate-verification-code --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}" --etag $etag  --query "properties.verificationCode" -o tsv)
       ./certGen.sh create_verification_certificate $verifycode
+      az iot dps certificate verify --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}"  --path ./certs/verification-code.cert.pem --etag $etag
     args:
       chdir: $HOME/certs/
 
+  - name: Create DPS Enrollment Group
+    shell: |
+      az iot dps enrollment-group create -g "{{ resourcegroup }}" --dps-name "{{ dpsname }}" --enrollment-id "{{ enrollmentid }}" --certificate-path ./certs/verification-code.cert.pem
+    args:
+      chdir: $HOME/certs/
     
     
 
