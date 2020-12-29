@@ -3,7 +3,7 @@ Ansible Playground
 
 ## Azure DPS Provisioning
 ### Install Ansible
-sudo apt-get intall ansible </br>
+sudo apt-get install ansible </br>
 ### Install Azure CLI
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash </br>
 
