@@ -1,0 +1,5 @@
+---
+dpsname: nvidia-jetson
+resourcegroup: nvidia-jetson
+name: rootca
+enrollmentid: nvidia-jetson

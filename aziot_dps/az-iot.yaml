@@ -2,16 +2,16 @@
 - name: Azure IoT DPS execution
   hosts: localhost
   connection: local
-  vars:
-    dpsname: nvidia-jetson
-    resourcegroup: nvidia-jetson
-    name: rootca
-    enrollmentid: nvidia-jetson
+  vars_files:
+    - ./vars/main.yml
+  # roles:
+  #   - role: "ocha.dotnet-core"
+  #     become: yes
     
   tasks:
   - name: Folder Creation in the home folder
     file:
-      path: $HOME/certs
+      path: $HOME/certs/leafcerts
       state: directory
   - name: Download certificate generation scripts
     shell: |
@@ -52,7 +52,6 @@
       etag=$(az iot dps certificate show --dps-name  "{{ dpsname }}" --resource-group  "{{ dpsname }}" --name "{{ name }}" --query "etag" -o tsv)
       verifycode=$(az iot dps certificate generate-verification-code --dps-name "{{ dpsname }}" --resource-group "{{ resourcegroup }}" --name "{{ name }}" --etag $etag  --query "properties.verificationCode" -o tsv)
       ./certGen.sh create_verification_certificate $verifycode
-      
     args:
       chdir: $HOME/certs/
 
@@ -63,9 +62,10 @@
       az iot dps enrollment-group update -g "{{ resourcegroup }}" --dps-name "{{ dpsname }}" --enrollment-id "{{ enrollmentid }}"
     args:
       chdir: $HOME/certs/
-    
-    
-
-
-    
-
+  
+  - name: Generate Leaf certificates
+    shell: |
+      ./certGen.sh create_device_certificate "{{ inventory_hostname }}"
+    args:
+      chdir: $HOME/certs/
+     
