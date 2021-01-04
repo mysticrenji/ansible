@@ -2,6 +2,15 @@
 - name: Azure IoT DPS execution
   hosts: localhost
   connection: local
+  ## CHANGED HERE - added variable for files to download. use ansible_env.HOME for user home directory.
+  ssl_files_download:
+      - file_src: https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/certGen.sh
+        file_dst: "{{ ansible_env.HOME }}"/certs/certGen.sh
+      - file_src: https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/openssl_device_intermediate_ca.cnf
+        file_dst: "{{ ansible_env.HOME }}"/certs/openssl_device_intermediate_ca.cnf
+      - file_src: https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/openssl_root_ca.cnf
+        file_dst: "{{ ansible_env.HOME }}"/certs/openssl_root_ca.cnf
+        
   vars_files:
     - ./vars/main.yml
   # roles:
@@ -9,19 +18,46 @@
   #     become: yes
     
   tasks:
-  - name: Folder Creation in the home folder
+  #- name: Folder Creation in the home folder
+  #  file:
+  #    path: $HOME/certs/leafcerts
+  #    state: directory
+  #- name: Download certificate generation scripts
+  #  shell: |
+  #   curl https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/certGen.sh --output certGen.sh
+  #   curl https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/openssl_device_intermediate_ca.cnf --output openssl_device_intermediate_ca.cnf
+  #   curl https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/openssl_root_ca.cnf --output openssl_root_ca.cnf
+  #   chmod 700 certGen.sh
+  #   ./certGen.sh create_root_and_intermediate
+  #  args:
+  #    chdir: $HOME/certs
+   
+  ## CHANGED HERE - create certs/leafcerts directory
+  - name: Create certs directory if it does not exist
     file:
-      path: $HOME/certs/leafcerts
+      path: "{{ ansible_env.HOME }}"/certs/leafcerts
       state: directory
-  - name: Download certificate generation scripts
-    shell: |
-     curl https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/certGen.sh --output certGen.sh
-     curl https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/openssl_device_intermediate_ca.cnf --output openssl_device_intermediate_ca.cnf
-     curl https://raw.githubusercontent.com/Azure/azure-iot-sdk-c/master/tools/CACertificates/openssl_root_ca.cnf --output openssl_root_ca.cnf
-     chmod 700 certGen.sh
-     ./certGen.sh create_root_and_intermediate
+      mode: '0755'
+  
+  ## CHANGED HERE - download and set permission for files using dictionary
+  - name: Download files for SSL
+    get_url:
+      url: "{{ item.file_src }}"
+      dest: "{{ item.file_dest }}"
+      mode: '0755'
+    loop: "{{ ssl_files_download }}"
+   
+  ## CHANGED HERE - 700 permission for certGen.sh
+  - name: Change file ownership, group and permissions
+    file:
+      path: "{{ ansible_env.HOME }}"/certs/certGen.sh
+      mode: '0700'
+ 
+  ## CHANGED HERE - execute the script
+  - name: Execute certGen.sh script to generate certs
+    shell: './certGen.sh create_root_and_intermediate'
     args:
-      chdir: $HOME/certs
+      chdir: "{{ ansible_env.HOME }}"/certs
 
   # - name: Check Az CLI is installed on the machine
   #   shell: "which az iot"
